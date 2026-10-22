@@ -61,8 +61,7 @@ comfyui-ha/
 ├── repository.yaml          # makes this a Home Assistant add-on repository
 └── comfyui/
     ├── config.yaml          # add-on manifest (GPU access, port, /share map)
-    ├── build.yaml           # per-arch base image + build args (CUDA / torch / ComfyUI ref)
-    ├── Dockerfile           # CUDA base → PyTorch → ComfyUI
+    ├── Dockerfile           # CUDA base → PyTorch → ComfyUI (build args: CUDA / torch / ComfyUI ref)
     ├── run.sh               # entrypoint: GPU probe, /share persistence, launch
     ├── DOCS.md
     └── CHANGELOG.md
@@ -72,9 +71,10 @@ comfyui-ha/
 
 Defaults target the HAOS GPU-AI reference box (RTX 4090, driver 595.84 / CUDA
 13.2). A newer driver runs older CUDA runtimes forward-compatibly, so the image
-defaults to a CUDA 12.8 base + `cu128` PyTorch — all overridable in
-[`comfyui/build.yaml`](comfyui/build.yaml) without editing the Dockerfile.
-Ubuntu 24.04 (Python 3.12, which ComfyUI targets) is the base.
+defaults to a CUDA 12.8 base + `cu128` PyTorch — all set as `ARG`s at the top of
+[`comfyui/Dockerfile`](comfyui/Dockerfile) (`BUILD_FROM`, `TORCH_INDEX_URL`,
+`COMFYUI_REF`); edit those to retune. Ubuntu 24.04 (Python 3.12, which ComfyUI
+targets) is the base.
 
 > ⚠️ **Not yet built/flashed here.** This scaffold matches the `haos-gpu-ai`
 > conventions but has not been built on the target box. Before first use, confirm

@@ -84,7 +84,8 @@ Ollama add-on's style):
 
 The default image ships CUDA/PyTorch. The run log warns when it detects an
 AMD (`/dev/kfd`) or Intel (`/dev/dri`) GPU instead. For those, rebuild with a
-matching base + torch channel in `build.yaml`:
+matching base + torch channel by editing the `BUILD_FROM` / `TORCH_INDEX_URL`
+`ARG`s at the top of the `Dockerfile`:
 
 - **AMD:** a ROCm base image + ROCm PyTorch wheels (`TORCH_INDEX_URL` → the ROCm
   channel).
