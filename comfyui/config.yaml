@@ -1,0 +1,52 @@
+name: "ComfyUI (GPU-AI Universal)"
+version: "0.1.0"
+slug: comfyui_gpu_ai
+description: >-
+  ComfyUI (Stable Diffusion / Flux) image-generation backend with universal
+  GPU acceleration (NVIDIA / Intel / AMD), built for the HAOS GPU-AI host.
+  Exposes the ComfyUI web UI + HTTP API to Home Assistant.
+url: "https://github.com/sam3gp8/comfyui-ha"
+arch:
+  - amd64
+init: false
+# ComfyUI is a long-running HTTP service, not a transient job.
+startup: services
+# Heavy: it holds VRAM while running and competes with Ollama for the GPU, so it
+# is NOT started at boot by default. Flip to `auto` if you want it always up.
+boot: manual
+host_network: false
+ports:
+  8188/tcp: 8188
+ports_description:
+  8188/tcp: "ComfyUI web UI + API"
+# Convenience "OPEN WEB UI" button in the add-on page.
+webui: "http://[HOST]:[PORT:8188]/"
+map:
+  - share:rw
+
+# --- GPU access -------------------------------------------------------------
+# Same universal pattern as the Ollama add-on: full_access grants the whole host
+# /dev tree so the container sees WHICHEVER GPU is present (NVIDIA nodes, or
+# /dev/dri + /dev/kfd). An explicit `devices: [/dev/nvidia0]` list would fail to
+# start on an Intel/AMD-only host where that node does not exist.
+#
+# Trade-off: broad, but acceptable for a single-tenant homelab appliance. For a
+# vendor-specific build, drop full_access and use a narrow devices list (see the
+# commented block below).
+full_access: true
+
+# NVIDIA path: the host bakes a conditional "default-runtime": "nvidia" into
+# daemon.json. That runtime hook is a no-op UNLESS a container sets
+# NVIDIA_VISIBLE_DEVICES, so these two env vars are what actually trigger the
+# Container Toolkit to inject the host driver libs (libcuda, libnvidia-ml,
+# libnvidia-ptxjitcompiler) into this container. "compute,utility" is correct for
+# headless CUDA compute (no display/graphics capability needed).
+environment:
+  NVIDIA_VISIBLE_DEVICES: "all"
+  NVIDIA_DRIVER_CAPABILITIES: "compute,utility"
+
+# --- Vendor-specific alternative (instead of full_access) -------------------
+# devices:
+#   - /dev/dri          # Intel + AMD render nodes
+#   - /dev/kfd          # AMD ROCm compute
+#   # NVIDIA needs no devices here when default-runtime=nvidia is active.
