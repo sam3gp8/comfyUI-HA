@@ -1,0 +1,71 @@
+name: Release on merge
+
+# When a change lands on main (i.e. a PR merges), cut a GitHub Release tagged
+# with the add-on version from comfyui/config.yaml. Idempotent: if that
+# version's tag already exists, the job skips — so merges that don't bump the
+# version never duplicate a release or fail.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Read add-on version
+        id: ver
+        run: |
+          version="$(sed -nE 's/^version:[[:space:]]*"?([^"[:space:]]+)"?.*/\1/p' comfyui/config.yaml | head -1)"
+          if [ -z "$version" ]; then
+            echo "::error::Could not parse version from comfyui/config.yaml"
+            exit 1
+          fi
+          echo "version=$version"   >> "$GITHUB_OUTPUT"
+          echo "tag=v$version"      >> "$GITHUB_OUTPUT"
+
+      - name: Skip if tag already exists
+        id: check
+        run: |
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.ver.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Tag ${{ steps.ver.outputs.tag }} already exists; skipping release."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Extract changelog notes
+        if: steps.check.outputs.exists == 'false'
+        run: |
+          # Grab the exact `## <version>` section from the add-on CHANGELOG.
+          awk -v hdr="## ${{ steps.ver.outputs.version }}" '
+            $0 == hdr      { capture = 1; next }
+            capture && /^## / { exit }
+            capture        { print }
+          ' comfyui/CHANGELOG.md > release_notes.md
+          if [ ! -s release_notes.md ]; then
+            echo "Release ${{ steps.ver.outputs.tag }}" > release_notes.md
+          fi
+
+      - name: Create release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.ver.outputs.tag }}" \
+            --target "${{ github.sha }}" \
+            --title "${{ steps.ver.outputs.tag }}" \
+            --notes-file release_notes.md
