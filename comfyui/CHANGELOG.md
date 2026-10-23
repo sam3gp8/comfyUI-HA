@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.1
+
+- Fix: validate downloaded checkpoints so a **gated-model agreement page** or an
+  error page (served as HTTP 200) is never saved as a model. Files under ~20 MB,
+  or whose first bytes look like HTML / an LFS pointer, are rejected and removed
+  — and a bogus leftover from an earlier run is auto-cleaned on the next start.
+  (Anonymous SDXL-base returned a ~1 KB gate page that 0.2.0 saved as the model.)
+- New options: **`hf_token`** (masked) for gated HuggingFace models, and
+  **`model_url`** / **`model_filename`** to pull any direct link (HF, Civitai, …),
+  which overrides the `model` dropdown.
+
 ## 0.2.0
 
 - Plug-and-play first start: the add-on can now download a chosen free

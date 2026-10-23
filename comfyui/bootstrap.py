@@ -2,13 +2,16 @@
 """First-start bootstrap for the ComfyUI GPU-AI add-on.
 
 Reads the add-on options and, to make image generation plug-and-play:
-  * optionally downloads a user-chosen free checkpoint (if none is present), and
+  * optionally downloads a checkpoint (a curated free one, or any direct URL
+    you supply) if none is present, and
   * seeds an API-format workflow into the Home Assistant config dir with
     ckpt_name auto-filled, so the ComfyUI AI Task integration needs only the
     base URL + that path.
 
 Every step is best-effort and non-fatal: ComfyUI still starts if any of this
-fails. Paths can be overridden with env vars (used by the test harness).
+fails. Downloads are *validated* so a gated-model gate page or an error page
+(served as HTTP 200) is never saved as a checkpoint. Paths can be overridden
+with env vars (used by the test harness).
 """
 from __future__ import annotations
 
@@ -16,6 +19,7 @@ import json
 import os
 import subprocess
 from pathlib import Path
+from urllib.parse import urlsplit
 
 OPTIONS = Path(os.environ.get("COMFYUI_OPTIONS", "/data/options.json"))
 SHARE = Path(os.environ.get("COMFYUI_SHARE", "/share/comfyui"))
@@ -27,8 +31,13 @@ HA_CONFIG_CANDIDATES = [
     Path(p) for p in os.environ.get("COMFYUI_HA_CONFIG", "/homeassistant:/config").split(":")
 ]
 
-# Curated free, no-auth checkpoints. URLs are best-effort; the download is
-# non-fatal, so a dead URL just means "add a model yourself". Edit freely.
+# Smallest plausible checkpoint. Real .safetensors models are >1 GB; gate pages
+# and LFS pointers are a few KB. Anything under this is treated as "not a model".
+MIN_MODEL_BYTES = int(os.environ.get("COMFYUI_MIN_MODEL_BYTES", str(20 * 1024 * 1024)))
+
+# Curated checkpoints. URLs are best-effort; some HuggingFace models are gated
+# (they return a ~1 KB agreement page to anonymous requests) and need `hf_token`.
+# For anything else, set `model_url` to a direct link (HF, Civitai, …).
 MODELS = {
     "sd-1.5": (
         "v1-5-pruned-emaonly.safetensors",
@@ -47,6 +56,8 @@ MODELS = {
     ),
 }
 
+_HTML_SNIFF = (b"<!doctype", b"<html", b"<?xml", b"{\"error", b"version https://git-lfs")
+
 
 def log(msg: str) -> None:
     print(f"[comfyui-bootstrap] {msg}", flush=True)
@@ -60,42 +71,89 @@ def read_options() -> dict:
         return {}
 
 
+def is_model_file(path: Path) -> bool:
+    """A real checkpoint: big enough, and not an HTML/error/LFS-pointer page."""
+    try:
+        if not path.is_file() or path.stat().st_size < MIN_MODEL_BYTES:
+            return False
+        with open(path, "rb") as fh:
+            head = fh.read(64).lstrip().lower()
+        return not any(head.startswith(sig) for sig in _HTML_SNIFF)
+    except Exception:
+        return False
+
+
 def first_checkpoint() -> str | None:
     if not CKPT_DIR.is_dir():
         return None
     for p in sorted(CKPT_DIR.iterdir()):
-        if p.is_file() and p.suffix.lower() in (".safetensors", ".ckpt") and p.stat().st_size > 0:
+        if p.suffix.lower() in (".safetensors", ".ckpt") and is_model_file(p):
             return p.name
     return None
 
 
-def download_model(key: str) -> str | None:
-    if key not in MODELS:
+def _resolve_source(opts: dict) -> tuple[str, str] | None:
+    """Return (filename, url) for the chosen model, or None."""
+    url = str(opts.get("model_url", "")).strip()
+    if url:
+        fname = str(opts.get("model_filename", "")).strip() or os.path.basename(urlsplit(url).path)
+        if not fname:
+            log("model_url set but no filename could be derived; set model_filename")
+            return None
+        return fname, url
+    key = str(opts.get("model", "none")).strip()
+    if key and key != "none":
+        if key in MODELS:
+            return MODELS[key]
         log(f"unknown model '{key}'; skipping download")
-        return None
-    fname, url = MODELS[key]
+    return None
+
+
+def download_model(fname: str, url: str, token: str = "") -> str | None:
     CKPT_DIR.mkdir(parents=True, exist_ok=True)
     dest = CKPT_DIR / fname
-    if dest.exists() and dest.stat().st_size > 0:
-        log(f"model already present: {fname}")
-        return fname
-    tmp = CKPT_DIR / (fname + ".part")
-    log(f"downloading '{key}' -> {fname} (large; first start only)")
-    try:
-        subprocess.run(
-            ["curl", "-fL", "--retry", "3", "--retry-delay", "5", "-o", str(tmp), url],
-            check=True,
-        )
-        tmp.replace(dest)
-        log(f"downloaded {fname}")
-        return fname
-    except Exception as exc:
-        log(f"download failed ({exc}); add a model to {CKPT_DIR} manually")
+    if dest.exists():
+        if is_model_file(dest):
+            log(f"model already present: {fname}")
+            return fname
+        # A leftover gate page / truncated file from an earlier run — drop it.
+        log(f"removing bogus/undersized {fname} ({dest.stat().st_size} bytes)")
         try:
-            tmp.unlink(missing_ok=True)
+            dest.unlink()
         except Exception:
             pass
+
+    tmp = CKPT_DIR / (fname + ".part")
+    cmd = ["curl", "-fL", "--retry", "3", "--retry-delay", "5"]
+    if token:
+        cmd += ["-H", f"Authorization: Bearer {token}"]
+    cmd += ["-o", str(tmp), url]
+    log(f"downloading -> {fname} (large; first start only)")
+    try:
+        subprocess.run(cmd, check=True)
+    except Exception as exc:
+        log(f"download failed ({exc}); add a model to {CKPT_DIR} manually")
+        _rm(tmp)
         return None
+
+    if not is_model_file(tmp):
+        size = tmp.stat().st_size if tmp.exists() else 0
+        log(f"downloaded {size} bytes that are not a model (gated page or error?); "
+            "discarding. For gated HuggingFace models set `hf_token`, or use "
+            "`model_url` for a direct link.")
+        _rm(tmp)
+        return None
+
+    tmp.replace(dest)
+    log(f"downloaded {fname}")
+    return fname
+
+
+def _rm(path: Path) -> None:
+    try:
+        path.unlink(missing_ok=True)
+    except Exception:
+        pass
 
 
 def ha_config_dir() -> Path | None:
@@ -142,7 +200,7 @@ def seed_workflow(ckpt: str | None) -> None:
         log(f"existing {target} is not valid JSON; leaving untouched")
         return
     cur = existing.get("4", {}).get("inputs", {}).get("ckpt_name") if isinstance(existing, dict) else None
-    cur_ok = bool(cur) and (CKPT_DIR / cur).exists()
+    cur_ok = bool(cur) and is_model_file(CKPT_DIR / cur)
     if ckpt and not cur_ok:
         _set_ckpt(existing, ckpt)
         target.write_text(json.dumps(existing, indent=2) + "\n")
@@ -153,17 +211,18 @@ def seed_workflow(ckpt: str | None) -> None:
 
 def main() -> None:
     opts = read_options()
-    model = str(opts.get("model", "none")).strip()
     seed = bool(opts.get("seed_workflow", True))
+    token = str(opts.get("hf_token", "")).strip()
 
     ckpt = first_checkpoint()
-    if model and model != "none":
-        downloaded = download_model(model)
+    source = _resolve_source(opts)
+    if source and ckpt is None:
+        downloaded = download_model(source[0], source[1], token)
         if downloaded:
             ckpt = downloaded
     if ckpt is None:
-        log(f"no checkpoint present yet; add a .safetensors to {CKPT_DIR} "
-            "or pick a model in the add-on config")
+        log(f"no usable checkpoint yet; add a .safetensors to {CKPT_DIR}, pick a "
+            "model, or set model_url in the add-on config")
 
     if seed:
         seed_workflow(ckpt)

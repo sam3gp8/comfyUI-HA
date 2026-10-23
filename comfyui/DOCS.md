@@ -28,11 +28,21 @@ want it always up.
 
 On the add-on's **Configuration** tab:
 
-- **`model`** — pick a free, no-auth checkpoint to **auto-download on first
-  start if none is present**: `sd-1.5` (~2 GB, fast), `sdxl-base-1.0` (~6.5 GB,
-  best quality), `sdxl-turbo` (fast few-step), or `none` (bring your own). The
+- **`model`** — pick a curated checkpoint to **auto-download on first start if
+  none is present**: `sd-1.5` (~2 GB, fast), `sdxl-base-1.0` (~6.5 GB, best
+  quality), `sdxl-turbo` (fast few-step), or `none` (bring your own). The
   download is best-effort and runs before ComfyUI serves, so first start can take
-  a while; it only happens once.
+  a while; it only happens once. Downloads are **validated** — a gated-model
+  agreement page or error page (which HuggingFace serves as a ~1 KB HTTP 200) is
+  rejected, never saved as a model.
+- **`hf_token`** — a HuggingFace token (masked) for **gated** models. Several
+  Stability models (incl. SDXL base) return a ~1 KB agreement page to anonymous
+  requests; set this (from a HF account that accepted the model's terms) to fetch
+  them.
+- **`model_url`** / **`model_filename`** — a **direct download URL** for any
+  checkpoint (HuggingFace, Civitai, …) and the filename to save it as. Set
+  `model_url` to override the `model` dropdown entirely — the simplest way to use
+  a model the dropdown doesn't list.
 - **`seed_workflow`** (default on) — writes a ready-to-use API workflow to
   **`/config/comfyui/txt2img.api.json`** with `ckpt_name` auto-filled from the
   present/downloaded model. It never clobbers a copy you've edited, and repairs a
