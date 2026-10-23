@@ -64,11 +64,28 @@ There are two ways to actually use it from HA:
    generation tasks" dropdown).** Home Assistant's `ai_task.generate_image`
    action needs a custom integration that registers a ComfyUI-backed AI Task
    *entity* and points at `http://<HA_HOST_IP>:8188`. These are third-party and
-   still evolving — e.g. the community `ComfyUI-Home-Assistant` integration
-   (`Incipiens/ComfyUI-Home-Assistant`) installed via HACS. Verify the current
-   status/compatibility before relying on one; there is no official first-party
-   ComfyUI AI Task integration yet. This add-on only provides the backend API —
-   it does not itself register an `ai_task` entity.
+   still evolving (there is no official first-party ComfyUI AI Task integration
+   yet). This add-on only provides the backend API — it does not itself register
+   an `ai_task` entity.
+
+   The community one is `Incipiens/ComfyUI-Home-Assistant` ("ComfyUI AI Task")
+   via HACS. Two things trip people up in its config flow:
+
+   - **Base URL** is the add-on, e.g. `http://homeassistant.local:8188` (not
+     `localhost`, per above).
+   - **"Workflow JSON"** is a **file path under `/config/`**, *not* pasted JSON,
+     and the file must be **API format** (it rejects the ComfyUI UI/graph
+     export). Copy a workflow onto the HA host (File Editor / Samba / VS Code
+     add-on) at e.g. `/config/comfyui/txt2img.api.json` and enter that **path**.
+
+   A ready-to-use API-format text-to-image workflow is in
+   [`examples/txt2img.api.json`](examples/txt2img.api.json) — set its
+   `ckpt_name` to a model you've put in
+   `/share/comfyui/models/checkpoints/`, and on the integration's second step
+   pick **node 6** as the prompt-text node (6 = positive, 7 = negative;
+   resolution and seed auto-select). See
+   [`examples/README.md`](examples/README.md) for details, including the
+   guaranteed-correct "Save (API Format)" export route from your own ComfyUI.
 
 ## Tuning
 
