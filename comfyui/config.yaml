@@ -1,5 +1,5 @@
 name: "ComfyUI (GPU-AI Universal)"
-version: "0.2.0"
+version: "0.2.1"
 slug: comfyui_gpu_ai
 description: >-
   ComfyUI (Stable Diffusion / Flux) image-generation backend with universal
@@ -33,11 +33,21 @@ map:
 # ready-to-use workflow. All of this is best-effort and non-fatal.
 options:
   model: "none"
+  model_url: ""
+  model_filename: ""
+  hf_token: ""
   seed_workflow: true
   extra_args: ""
 schema:
-  # Pick a free, no-auth checkpoint to auto-download if none is present yet.
+  # Pick a curated checkpoint to auto-download if none is present yet. Some
+  # HuggingFace models are gated (need hf_token); for anything else use model_url.
   model: "list(none|sd-1.5|sdxl-base-1.0|sdxl-turbo)"
+  # Direct download URL for any checkpoint (HF, Civitai, …). Overrides `model`.
+  model_url: "str?"
+  # Filename to save model_url as (defaults to the URL's basename).
+  model_filename: "str?"
+  # HuggingFace token for gated models (masked). Sent as a bearer header.
+  hf_token: "password?"
   # Seed /config/comfyui/txt2img.api.json (never clobbers a user-edited copy).
   seed_workflow: bool
   # Extra ComfyUI CLI flags, e.g. "--lowvram" or "--fast".
