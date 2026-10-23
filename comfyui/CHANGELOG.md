@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.2.0
+
+- Plug-and-play first start: the add-on can now download a chosen free
+  checkpoint and auto-seed a ready-to-use API workflow, so the ComfyUI AI Task
+  integration only needs the base URL + the seeded path.
+- New Configuration-tab options: `model` (`none` | `sd-1.5` | `sdxl-base-1.0` |
+  `sdxl-turbo`), `seed_workflow`, and `extra_args`.
+- Seeds `/config/comfyui/txt2img.api.json` with `ckpt_name` auto-filled from the
+  present/downloaded model. Idempotent: never clobbers a user-edited copy, and
+  repairs a `ckpt_name` that points at a missing model.
+- Maps `homeassistant_config:rw` so the add-on can write that workflow.
+- All bootstrap steps are best-effort and non-fatal — ComfyUI still starts if a
+  download or seed fails.
+
 ## 0.1.1
 
 - Fix build failure: install into a venv instead of upgrading Ubuntu's

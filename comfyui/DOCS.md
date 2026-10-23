@@ -24,6 +24,25 @@ the PyTorch/CUDA runtime.
 with Ollama, so it does not auto-start. Set `boot: auto` in `config.yaml` if you
 want it always up.
 
+## Plug-and-play first start (options)
+
+On the add-on's **Configuration** tab:
+
+- **`model`** — pick a free, no-auth checkpoint to **auto-download on first
+  start if none is present**: `sd-1.5` (~2 GB, fast), `sdxl-base-1.0` (~6.5 GB,
+  best quality), `sdxl-turbo` (fast few-step), or `none` (bring your own). The
+  download is best-effort and runs before ComfyUI serves, so first start can take
+  a while; it only happens once.
+- **`seed_workflow`** (default on) — writes a ready-to-use API workflow to
+  **`/config/comfyui/txt2img.api.json`** with `ckpt_name` auto-filled from the
+  present/downloaded model. It never clobbers a copy you've edited, and repairs a
+  `ckpt_name` that points at a model no longer on disk.
+- **`extra_args`** — extra ComfyUI CLI flags (e.g. `--lowvram`).
+
+So the fast path is: set **`model`** → start the add-on → the model and the
+workflow file are ready. Then all you do on the integration side is point it at
+the base URL and that seeded path (below).
+
 ## Where models and output live
 
 Everything persists on the Home Assistant `/share` mount, so it survives add-on
@@ -69,32 +88,35 @@ There are two ways to actually use it from HA:
    an `ai_task` entity.
 
    The community one is `Incipiens/ComfyUI-Home-Assistant` ("ComfyUI AI Task")
-   via HACS. Two things trip people up in its config flow:
+   via HACS. With the add-on's plug-and-play options (above), its setup is:
 
-   - **Base URL** is the add-on, e.g. `http://homeassistant.local:8188` (not
+   - **Base URL** → the add-on, e.g. `http://homeassistant.local:8188` (not
      `localhost`, per above).
-   - **"Workflow JSON"** is a **file path under `/config/`**, *not* pasted JSON,
-     and the file must be **API format** (it rejects the ComfyUI UI/graph
-     export). Copy a workflow onto the HA host (File Editor / Samba / VS Code
-     add-on) at e.g. `/config/comfyui/txt2img.api.json` and enter that **path**.
+   - **"Workflow JSON"** → the **path** `/config/comfyui/txt2img.api.json`. This
+     field is a **file path under `/config/`**, *not* pasted JSON — and with
+     `seed_workflow` on (default), the add-on has already written that file for
+     you, in API format with your model filled in. (If you'd rather hand-make
+     it, the same file is in [`examples/txt2img.api.json`](examples/txt2img.api.json);
+     it must be **API format** — the integration rejects the ComfyUI UI/graph
+     export.)
+   - On the integration's **second step**, pick **node 6** as the prompt-text
+     node (6 = positive, 7 = negative; resolution and seed auto-select). Set the
+     width/height to suit the model (512×512 for SD 1.5, 1024×1024 for SDXL).
 
-   A ready-to-use API-format text-to-image workflow is in
-   [`examples/txt2img.api.json`](examples/txt2img.api.json) — set its
-   `ckpt_name` to a model you've put in
-   `/share/comfyui/models/checkpoints/`, and on the integration's second step
-   pick **node 6** as the prompt-text node (6 = positive, 7 = negative;
-   resolution and seed auto-select). See
-   [`examples/README.md`](examples/README.md) for details, including the
-   guaranteed-correct "Save (API Format)" export route from your own ComfyUI.
+   See [`examples/README.md`](examples/README.md) for the workflow's node map and
+   the guaranteed-correct "Save (API Format)" export route from your own ComfyUI.
 
 ## Tuning
 
-Edit `environment:` in `config.yaml` (no options schema is defined, matching the
-Ollama add-on's style):
+Most knobs are on the **Configuration** tab (see *Plug-and-play first start*
+above): `model`, `seed_workflow`, `extra_args`.
+
+Lower-level defaults live in `environment:` in `config.yaml` and are read by
+`run.sh`:
 
 - `COMFYUI_PORT` — listen port (default `8188`).
-- `COMFYUI_EXTRA_ARGS` — extra ComfyUI CLI flags, space-separated, e.g.
-  `--lowvram` on a smaller GPU, or `--fast`.
+- `COMFYUI_EXTRA_ARGS` — extra ComfyUI CLI flags; if unset, the `extra_args`
+  option is used instead.
 - `COMFYUI_SHARE` — persistence base (default `/share/comfyui`).
 
 ## Non-NVIDIA GPUs
