@@ -21,7 +21,12 @@ ARG COMFYUI_REPO=https://github.com/comfyanonymous/ComfyUI.git
 # Pin a ComfyUI release tag (e.g. "v0.3.40") for reproducible builds; "master"
 # tracks latest.
 ARG COMFYUI_REF=master
-ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu128
+# cu130: ComfyUI 0.42+ needs a cu130 PyTorch build to enable its optimized
+# CUDA/Triton kernels (otherwise it warns and falls back to eager). The host
+# driver (595.84 / CUDA 13.2) covers it. The base image can stay on 12.8.1 — the
+# torch wheels bundle their own CUDA 13 runtime, and the warning keys off
+# torch.version.cuda, not the base image.
+ARG TORCH_INDEX_URL=https://download.pytorch.org/whl/cu130
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PIP_NO_CACHE_DIR=1 \
