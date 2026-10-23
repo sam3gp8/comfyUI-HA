@@ -1,5 +1,5 @@
 name: "ComfyUI (GPU-AI Universal)"
-version: "0.2.1"
+version: "0.2.2"
 slug: comfyui_gpu_ai
 description: >-
   ComfyUI (Stable Diffusion / Flux) image-generation backend with universal

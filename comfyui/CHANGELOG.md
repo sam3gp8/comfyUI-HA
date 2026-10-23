@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.2
+
+- Build with **cu130 PyTorch** (was cu128). ComfyUI 0.42+ warns and disables its
+  optimized `comfy_kitchen` CUDA/Triton kernels on a sub-cu130 torch, falling
+  back to eager; cu130 silences the warning and enables the faster kernels. The
+  host driver (595.84 / CUDA 13.2) covers it, and the base image stays on 12.8.1
+  (torch bundles its own CUDA 13 runtime).
+
 ## 0.2.1
 
 - Fix: validate downloaded checkpoints so a **gated-model agreement page** or an

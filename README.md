@@ -70,16 +70,16 @@ comfyui-ha/
 ## Defaults & versions
 
 Defaults target the HAOS GPU-AI reference box (RTX 4090, driver 595.84 / CUDA
-13.2). A newer driver runs older CUDA runtimes forward-compatibly, so the image
-defaults to a CUDA 12.8 base + `cu128` PyTorch — all set as `ARG`s at the top of
-[`comfyui/Dockerfile`](comfyui/Dockerfile) (`BUILD_FROM`, `TORCH_INDEX_URL`,
-`COMFYUI_REF`); edit those to retune. Ubuntu 24.04 (Python 3.12, which ComfyUI
-targets) is the base.
+13.2). The image uses a CUDA 12.8 base + **`cu130` PyTorch** (ComfyUI 0.42+ needs
+cu130 for its optimized CUDA/Triton kernels; the torch wheels bundle their own
+CUDA 13 runtime, so the base image version is independent) — all set as `ARG`s at
+the top of [`comfyui/Dockerfile`](comfyui/Dockerfile) (`BUILD_FROM`,
+`TORCH_INDEX_URL`, `COMFYUI_REF`); edit those to retune. Ubuntu 24.04 (Python
+3.12, which ComfyUI targets) is the base.
 
-> ⚠️ **Not yet built/flashed here.** This scaffold matches the `haos-gpu-ai`
-> conventions but has not been built on the target box. Before first use, confirm
-> the `nvidia/cuda` base tag exists on Docker Hub and that the `cu128` channel
-> suits your driver, then iterate the pins the same way the host OS does.
+> **Validated on hardware** (RTX 4090): GPU visible in the container, SDXL base
+> auto-downloaded, and the workflow auto-wired. Tune the pins the same way the
+> host OS does if you move to a different driver/CUDA line.
 
 ## License
 
