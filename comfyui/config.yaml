@@ -1,5 +1,5 @@
 name: "ComfyUI (GPU-AI Universal)"
-version: "0.1.1"
+version: "0.2.0"
 slug: comfyui_gpu_ai
 description: >-
   ComfyUI (Stable Diffusion / Flux) image-generation backend with universal
@@ -23,6 +23,25 @@ ports_description:
 webui: "http://[HOST]:[PORT:8188]/"
 map:
   - share:rw
+  # Lets the add-on seed the API workflow into the HA config dir so the ComfyUI
+  # AI Task integration can point at /config/comfyui/txt2img.api.json with no
+  # manual file creation. Mounted at /homeassistant inside the add-on.
+  - homeassistant_config:rw
+
+# --- Plug-and-play options (Configuration tab) ------------------------------
+# On first start the add-on can download a chosen free checkpoint and seed a
+# ready-to-use workflow. All of this is best-effort and non-fatal.
+options:
+  model: "none"
+  seed_workflow: true
+  extra_args: ""
+schema:
+  # Pick a free, no-auth checkpoint to auto-download if none is present yet.
+  model: "list(none|sd-1.5|sdxl-base-1.0|sdxl-turbo)"
+  # Seed /config/comfyui/txt2img.api.json (never clobbers a user-edited copy).
+  seed_workflow: bool
+  # Extra ComfyUI CLI flags, e.g. "--lowvram" or "--fast".
+  extra_args: "str?"
 
 # --- GPU access -------------------------------------------------------------
 # Same universal pattern as the Ollama add-on: full_access grants the whole host

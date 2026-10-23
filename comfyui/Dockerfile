@@ -55,6 +55,12 @@ RUN pip install --upgrade pip \
     && pip install torch torchvision torchaudio --index-url "${TORCH_INDEX_URL}" \
     && pip install -r requirements.txt
 
+# First-start bootstrap (model download + workflow seeding) and the workflow
+# template it seeds from.
+RUN mkdir -p /opt/addon
+COPY bootstrap.py /opt/addon/bootstrap.py
+COPY examples/txt2img.api.json /opt/addon/workflow.template.json
+
 COPY run.sh /run.sh
 RUN chmod +x /run.sh
 

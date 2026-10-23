@@ -47,9 +47,19 @@ comfyui_share:
   unet: models/unet
 EOF
 
+# Plug-and-play first-start bootstrap: optional model download + seeding the API
+# workflow into the HA config dir. Best-effort; never blocks ComfyUI from starting.
+python3 /opt/addon/bootstrap.py || echo "[comfyui-addon] bootstrap had a non-fatal issue; continuing"
+
 export COMFYUI_PORT="${COMFYUI_PORT:-8188}"
-# Space-separated extra CLI flags, e.g. "--lowvram" or "--fast". Empty by default.
-EXTRA_ARGS="${COMFYUI_EXTRA_ARGS:-}"
+# Extra ComfyUI CLI flags. Prefer the add-on option (Configuration tab), then the
+# COMFYUI_EXTRA_ARGS env var, else none. Space-separated, e.g. "--lowvram".
+OPT_EXTRA="$(python3 -c 'import json,sys
+try:
+    sys.stdout.write(json.load(open("/data/options.json")).get("extra_args","") or "")
+except Exception:
+    pass' 2>/dev/null || true)"
+EXTRA_ARGS="${COMFYUI_EXTRA_ARGS:-${OPT_EXTRA}}"
 
 cd /opt/comfyui
 echo "[comfyui-addon] launching ComfyUI on 0.0.0.0:${COMFYUI_PORT} (data under ${BASE})"

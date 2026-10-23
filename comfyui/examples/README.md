@@ -7,6 +7,12 @@ graph) for use with the [`Incipiens/ComfyUI-Home-Assistant`](https://github.com/
 "ComfyUI AI Task" integration, which fills HA's `ai_task.generate_image`
 dropdown.
 
+> **You usually don't need to place this by hand.** With the add-on's
+> `seed_workflow` option on (default), the add-on already writes this file to
+> `/config/comfyui/txt2img.api.json` with `ckpt_name` filled in from your model —
+> just point the integration at that path. This copy is the template it seeds
+> from, and a manual fallback.
+
 That integration wants a **file path under `/config/`** pointing at an
 **API-format** workflow (it rejects the UI/graph export), and auto-detects the
 nodes it drives:
